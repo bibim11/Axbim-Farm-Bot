@@ -79,41 +79,10 @@ client.on("messageCreate",async message=>{
 
             status:"waiting"
 
-            if(message.content.startsWith("!testcomplete")){
+});
+        
 
-    let id = message.content.split(" ")[1];
 
-    let farm = farms.find(f => f.id == id);
-
-    if(!farm){
-        return message.reply("ไม่พบงาน");
-    }
-
-    farm.status = "completed";
-
-    let channel = client.channels.cache.get("1545465192719327292");
-
-    if(channel){
-        channel.send(`
-🌾 **FARM COMPLETE**
-
-เลขงาน: #${farm.id}
-
-Roblox:
-${farm.roblox}
-
-เวลา:
-${farm.hours} ชั่วโมง
-
-สถานะ:
-เสร็จสิ้น ✅
-        `);
-    }
-
-    saveFarms();
-
-    message.reply("ทดสอบเสร็จแล้ว");
-}
         });
 
 
