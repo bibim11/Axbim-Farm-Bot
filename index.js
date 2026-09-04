@@ -173,7 +173,7 @@ ${farm.hours} ชั่วโมง`
 
 
 
-        message.reply(
+        message.reply(`
 `🟢 FARM STARTED
 
 เลขงาน:
