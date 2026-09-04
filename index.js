@@ -182,11 +182,13 @@ ${farm.hours} ชั่วโมง`
 Roblox:
 ${farm.roblox}
 
-เริ่ม:
-${now.toLocaleString("th-TH")}
+${now.toLocaleString("th-TH", {
+  timeZone: "Asia/Bangkok"
+})}
 
-หมดเวลา:
-${end.toLocaleString("th-TH")}`
+${end.toLocaleString("th-TH", {
+  timeZone: "Asia/Bangkok"
+})}
         );
 
     }
