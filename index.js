@@ -247,3 +247,5 @@ Roblox: ${f.roblox || "-"}
     }
 
 });
+
+client.login(process.env.TOKEN);
