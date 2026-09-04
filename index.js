@@ -78,34 +78,23 @@ client.on("messageCreate",async message=>{
             end:null,
 
             status:"waiting"
-client.on("messageCreate", async message => {
 
-    if(message.author.bot) return;
+            if(message.content.startsWith("!testcomplete")){
 
+    let id = message.content.split(" ")[1];
 
-    // คำสั่งเดิมของคุณ
-    // !addfarm
-    // !editfarm
-    // !startfarm
+    let farm = farms.find(f => f.id == id);
 
+    if(!farm){
+        return message.reply("ไม่พบงาน");
+    }
 
-    // เอาโค้ดนี้ใส่ตรงนี้
-    if(message.content.startsWith("!testcomplete")){
+    farm.status = "completed";
 
-        let id = message.content.split(" ")[1];
+    let channel = client.channels.cache.get("1545465192719327292");
 
-        let farm = farms.find(f => f.id == id);
-
-        if(!farm){
-            return message.reply("ไม่พบงาน");
-        }
-
-        farm.status = "completed";
-
-        let channel = client.channels.cache.get("1545465192719327292");
-
-        if(channel){
-            channel.send(`
+    if(channel){
+        channel.send(`
 🌾 **FARM COMPLETE**
 
 เลขงาน: #${farm.id}
@@ -118,16 +107,13 @@ ${farm.hours} ชั่วโมง
 
 สถานะ:
 เสร็จสิ้น ✅
-            `);
-        }
-
-        saveFarms();
-
-        message.reply("ทดสอบเสร็จแล้ว");
+        `);
     }
 
+    saveFarms();
 
-});
+    message.reply("ทดสอบเสร็จแล้ว");
+}
         });
 
 
