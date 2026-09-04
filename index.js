@@ -247,5 +247,55 @@ Roblox: ${f.roblox || "-"}
     }
 
 });
+// ตรวจสอบเวลาฟาร์มทุก 1 นาที
 
+setInterval(()=>{
+
+    let farms = loadFarms();
+
+    let changed = false;
+
+
+    farms.forEach(farm=>{
+
+
+        if(
+            farm.status === "running" &&
+            farm.end
+        ){
+
+            let now = new Date();
+
+            let end = new Date(farm.end);
+
+
+
+            if(now >= end){
+
+                farm.status = "completed";
+
+                changed = true;
+
+
+                console.log(
+                    `FARM #${farm.id} COMPLETE`
+                );
+
+            }
+
+        }
+
+
+    });
+
+
+
+    if(changed){
+
+        saveFarms(farms);
+
+    }
+
+
+},60000);
 client.login(process.env.TOKEN);
