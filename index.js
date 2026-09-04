@@ -325,4 +325,61 @@ ${farm.hours} ชั่วโมง
 
 
 },60000);
+
+// ตรวจสอบฟาร์มทุก 1 นาที
+setInterval(() => {
+
+    let farms = loadFarms();
+    let changed = false;
+
+    let now = new Date();
+
+    farms.forEach(farm => {
+
+        if(farm.status === "running" && farm.end){
+
+            let end = new Date(farm.end);
+
+            if(now >= end){
+
+                farm.status = "completed";
+                changed = true;
+
+
+                let channel = client.channels.cache.get("1545465192719327292");
+
+                if(channel){
+
+                    channel.send(`
+✅ **FARM COMPLETE**
+
+เลขงาน:
+#${farm.id}
+
+Roblox:
+${farm.roblox}
+
+เวลาฟาร์ม:
+${farm.hours} ชั่วโมง
+
+สถานะ:
+เสร็จสิ้น ✅
+                    `);
+
+                }
+
+            }
+
+        }
+
+    });
+
+
+    if(changed){
+        saveFarms(farms);
+    }
+
+
+}, 60000);
+
 client.login(process.env.TOKEN);
