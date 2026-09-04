@@ -153,9 +153,7 @@ ${farm.hours} ชั่วโมง`
             return message.reply("❌ ไม่พบ FARM ID");
 
 
-        let now = new Date(
-             Date.now() + (7 * 60 * 60 * 1000)
-        );
+        let now = new Date();
         
         farm.start = now;
         
