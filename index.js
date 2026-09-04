@@ -174,7 +174,7 @@ ${farm.hours} ชั่วโมง`
 
 
         message.reply(`
-`🟢 FARM STARTED
+🟢 FARM STARTED
 
 เลขงาน:
 #${id}
