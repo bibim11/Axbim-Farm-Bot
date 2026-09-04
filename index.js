@@ -274,7 +274,27 @@ setInterval(()=>{
 
                 farm.status = "completed";
 
-                changed = true;
+                changed = true; 
+                let channel = client.channels.cache.get("1545465192719327292");
+
+if(channel){
+
+    channel.send(
+`⏰ FARM COMPLETE
+
+งาน #${farm.id}
+
+Roblox:
+${farm.roblox}
+
+เวลา:
+${farm.hours} ชั่วโมง
+
+สถานะ:
+เสร็จสิ้น ✅`
+    );
+
+}
 
 
                 console.log(
