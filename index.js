@@ -1,7 +1,7 @@
 require("dotenv").config();
 
-const { 
-    Client, 
+const {
+    Client,
     GatewayIntentBits,
     EmbedBuilder
 } = require("discord.js");
@@ -17,163 +17,86 @@ const client = new Client({
 });
 
 
-const farmFile = "./farms.json";
+const FARM_FILE = "./farms.json";
 
 
 function loadFarms(){
-
-    if(!fs.existsSync(farmFile)){
-        fs.writeFileSync(farmFile,"[]");
+    if(!fs.existsSync(FARM_FILE)){
+        fs.writeFileSync(FARM_FILE,"[]");
     }
 
     return JSON.parse(
-        fs.readFileSync(farmFile)
+        fs.readFileSync(FARM_FILE)
     );
-
 }
 
 
 function saveFarms(data){
-
     fs.writeFileSync(
-        farmFile,
+        FARM_FILE,
         JSON.stringify(data,null,2)
     );
-
 }
 
 
-
 client.once("ready",()=>{
-
     console.log(
         `Bot Online : ${client.user.tag}`
     );
-
 });
 
 
-
-client.on("messageCreate", async message=>{
-
+client.on("messageCreate",async message=>{
 
     if(message.author.bot) return;
 
 
-
-    // เพิ่มงานฟาร์ม
-
-    if(message.content === "!addfarm"){
-
-        const farm = loadFarms();
+    const args = message.content.split(" ");
+    const cmd = args[0].toLowerCase();
 
 
-        const id = farm.length + 1;
+    // สร้างงานฟาร์ม
+    if(cmd === "!addfarm"){
+
+        let farms = loadFarms();
+
+        let id = farms.length + 1;
 
 
-        farm.push({
+        farms.push({
 
             id:id,
 
-            customer:"รอกรอก",
-
-            tiktok:"",
+            customer:"",
 
             roblox:"",
 
-            detail:"",
+            hours:0,
 
-            time:"",
+            start:null,
 
-            status:"waiting",
+            end:null,
 
-            created:new Date()
+            status:"waiting"
 
         });
 
 
-        saveFarms(farm);
+        saveFarms(farms);
 
 
+        message.reply(
+`🌾 FARM CREATED
 
-        const embed = new EmbedBuilder()
-
-        .setTitle("🌾 FARM CREATED")
-
-        .setDescription(
-
-`เลขงาน: #${id}
+เลขงาน: #${id}
 
 สถานะ:
 🟡 รอกรอกข้อมูล
 
-ใช้ระบบต่อไปเพื่อเพิ่มข้อมูลลูกค้า`
-
-        )
-
-        .setColor("Green");
-
-
-        message.reply({
-            embeds:[embed]
-        });
-
+ใช้:
+!editfarm ${id}`
+        );
 
     }
-
-
-
-    // ดูคิว
-
-    if(message.content === "!farm"){
-
-        const farm = loadFarms();
-
-
-        if(farm.length===0){
-
-            return message.reply(
-                "ยังไม่มีงานฟาร์ม"
-            );
-
-        }
-
-
-        let text="";
-
-
-        farm.forEach(x=>{
-
-            text += 
-`
-🌾 #${x.id}
-สถานะ: ${x.status}
-ลูกค้า: ${x.customer}
-`;
-
-        });
-
-
-
-        const embed = new EmbedBuilder()
-
-        .setTitle("🌾 FARM QUEUE")
-
-        .setDescription(text)
-
-        .setColor("Blue");
-
-
-        message.reply({
-            embeds:[embed]
-        });
-
-
-    }
-
 
 });
-
-
-
-client.login(process.env.TOKEN);
