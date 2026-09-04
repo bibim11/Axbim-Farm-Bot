@@ -189,7 +189,7 @@ ${now.toLocaleString("th-TH", {
 ${end.toLocaleString("th-TH", {
   timeZone: "Asia/Bangkok"
 })}
-        );
+`);
 
     }
 
