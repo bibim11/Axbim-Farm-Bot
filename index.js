@@ -83,8 +83,7 @@ client.on("messageCreate",async message=>{
         
 
 
-        });
-
+       
 
         saveFarms(farms);
 
