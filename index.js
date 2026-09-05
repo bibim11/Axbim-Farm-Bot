@@ -172,22 +172,36 @@ ${farm.hours} ชั่วโมง`
 
 
         message.reply(`
-🟢 FARM STARTED
 
-เลขงาน:
-#${id}
+🥚 **FARM-${String(id).padStart(3,"0")}** 🥚
 
-Roblox:
+\`\`\`
+TikTok:
+${farm.customer}
+
+ชื่อ Roblox:
 ${farm.roblox}
 
+สถานะ ฟาร์ม:
+🔵 กำลังฟาร์ม
+
+แพ็กเกจ:
+${farm.hours} ชั่วโมง
+
+เริ่มงาน:
 ${now.toLocaleString("th-TH", {
-  timeZone: "Asia/Bangkok"
+ timeZone:"Asia/Bangkok"
 })}
 
+กำหนดเสร็จ:
 ${end.toLocaleString("th-TH", {
-  timeZone: "Asia/Bangkok"
+ timeZone:"Asia/Bangkok"
 })}
-`);
+
+⏳ เวลาจะนับตั้งแต่ร้านเริ่มฟาร์มจริงเท่านั้น
+\`\`\`
+`
+);
 
     }
 
