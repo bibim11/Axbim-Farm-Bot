@@ -300,20 +300,48 @@ setInterval(()=>{
 
 if(channel){
 
-    channel.send(
-`⏰ FARM COMPLETE
+    channel.send(`
 
-งาน #${farm.id}
+🥚 **FARM-${String(farm.id).padStart(3,"0")}** 🥚
 
-Roblox:
+\`\`\`
+TikTok:
+${farm.customer}
+
+ชื่อ Roblox:
 ${farm.roblox}
 
-เวลา:
+สถานะ:
+✅ ฟาร์มเสร็จเรียบร้อยครับ!
+
+แพ็กเกจ:
 ${farm.hours} ชั่วโมง
 
-สถานะ:
-เสร็จสิ้น ✅`
-    );
+เริ่มงาน:
+${new Date(farm.start).toLocaleString("th-TH", {
+timeZone:"Asia/Bangkok"
+})}
+
+เสร็จงาน:
+${new Date(farm.end).toLocaleString("th-TH", {
+timeZone:"Asia/Bangkok"
+})}
+
+
+ระบบหยุด:
+0 นาที
+
+ชดเชย:
+0 นาที
+
+
+เวลาฟาร์มจริงครบ ${farm.hours} ชั่วโมง ✅
+
+
+ขอบคุณที่ใช้บริการ Axbim Shop
+\`\`\`
+
+`);
 
 }
 
