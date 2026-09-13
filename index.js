@@ -292,6 +292,110 @@ ${thaiDate(end)}
             );
         }
 
+        // =====================================================
+// ต่อเวลาฟาร์ม
+// ใช้: !extendfarm <FARM ID> <จำนวนชั่วโมง>
+// ตัวอย่าง: !extendfarm 168 12
+// =====================================================
+if (cmd === "!extendfarm") {
+
+    const id = Number(args[1]);
+    const extraHours = Number(args[2]);
+
+    if (!Number.isInteger(id) || id <= 0 || !Number.isFinite(extraHours) || extraHours <= 0) {
+        return message.reply(
+`❌ รูปแบบคำสั่งไม่ถูกต้อง
+
+ใช้:
+!extendfarm <เลขงาน> <จำนวนชั่วโมง>
+
+ตัวอย่าง:
+!extendfarm 168 12`
+        );
+    }
+
+    const { data: farm, error: findError } = await supabase
+        .from("farms")
+        .select("id, roblox, hours, start_at, end_at, status")
+        .eq("id", id)
+        .single();
+
+    if (findError || !farm) {
+        console.error("EXTEND FARM FIND ERROR:", findError);
+        return message.reply("❌ ไม่พบ FARM ID นี้");
+    }
+
+    if (farm.status !== "running" || !farm.end_at) {
+        return message.reply(
+`❌ FARM-${String(id).padStart(3, "0")} ยังไม่ได้กำลังฟาร์ม
+
+คำสั่ง !extendfarm ใช้ได้เฉพาะงานที่กำลังฟาร์มอยู่เท่านั้น`
+        );
+    }
+
+    const oldEnd = new Date(farm.end_at);
+
+    if (Number.isNaN(oldEnd.getTime())) {
+        return message.reply("❌ เวลาสิ้นสุดของงานนี้ไม่ถูกต้อง");
+    }
+
+    // ป้องกันการต่อเวลาหลังงานหมดเวลาแล้ว
+    if (oldEnd.getTime() <= Date.now()) {
+        return message.reply(
+`❌ FARM-${String(id).padStart(3, "0")} หมดเวลาแล้ว
+
+ไม่สามารถใช้ !extendfarm กับงานที่หมดเวลาแล้วได้`
+        );
+    }
+
+    const oldHours = Number(farm.hours) || 0;
+    const totalHours = oldHours + extraHours;
+
+    // สำคัญ: เพิ่มจาก "เวลาสิ้นสุดเดิม" ไม่ใช่จากเวลาที่กดคำสั่ง
+    const newEnd = new Date(
+        oldEnd.getTime() + extraHours * 60 * 60 * 1000
+    );
+
+    const { error: updateError } = await supabase
+        .from("farms")
+        .update({
+            hours: totalHours,
+            end_at: newEnd.toISOString()
+        })
+        .eq("id", id);
+
+    if (updateError) {
+        console.error("EXTEND FARM UPDATE ERROR:", updateError);
+        return message.reply("❌ ต่อเวลาฟาร์มไม่สำเร็จ กรุณาลองใหม่");
+    }
+
+    return message.reply(
+`⏰ **ต่อเวลาฟาร์มสำเร็จ**
+
+🥚 **FARM-${String(id).padStart(3, "0")}**
+
+Roblox:
+${farm.roblox || "-"}
+
+เวลาเดิม:
+${oldHours} ชั่วโมง
+
+เพิ่มเวลา:
++${extraHours} ชั่วโมง
+
+แพ็กเกจรวม:
+${totalHours} ชั่วโมง
+
+กำหนดเสร็จใหม่:
+${newEnd.toLocaleString("th-TH", {
+    timeZone: "Asia/Bangkok"
+})}
+
+✅ ระบบต่อเวลาจากกำหนดเสร็จเดิมเรียบร้อย`
+    );
+}
+
+        
         // ดูรายการฟาร์ม
         if (cmd === "!farmlist") {
             const { data, error } = await supabase
