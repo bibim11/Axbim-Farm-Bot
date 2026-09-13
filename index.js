@@ -2,178 +2,270 @@ require("dotenv").config();
 
 const {
     Client,
-    GatewayIntentBits,
-    EmbedBuilder
+    GatewayIntentBits
 } = require("discord.js");
 
-const fs = require("fs");
+const { createClient } = require("@supabase/supabase-js");
+
+const TOKEN = process.env.TOKEN;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const FARM_CHANNEL_ID = process.env.FARM_CHANNEL_ID || "1545465192719327292";
+
+if (!TOKEN) {
+    throw new Error("Missing TOKEN environment variable");
+}
+
+if (!SUPABASE_URL) {
+    throw new Error("Missing SUPABASE_URL environment variable");
+}
+
+if (!SUPABASE_KEY) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY environment variable");
+}
+
+const supabase = createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false
+        }
+    }
+);
 
 const client = new Client({
-    intents:[
+    intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
 });
 
+function formatFarmId(id) {
+    return `FARM-${String(id).padStart(3, "0")}`;
+}
 
-const FARM_FILE = "./farms.json";
+function thaiDate(value) {
+    if (!value) return "-";
 
+    return new Date(value).toLocaleString("th-TH", {
+        timeZone: "Asia/Bangkok"
+    });
+}
 
-function loadFarms(){
-    if(!fs.existsSync(FARM_FILE)){
-        fs.writeFileSync(FARM_FILE,"[]");
+async function getFarm(id) {
+    const { data, error } = await supabase
+        .from("farms")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+    if (error) throw error;
+
+    return data;
+}
+
+async function sendLongMessage(message, text) {
+    const chunks = [];
+    let current = "";
+
+    for (const block of text.split("\n\n")) {
+        const candidate = current
+            ? `${current}\n\n${block}`
+            : block;
+
+        if (candidate.length > 1900) {
+            if (current) chunks.push(current);
+            current = block;
+        } else {
+            current = candidate;
+        }
     }
 
-    return JSON.parse(
-        fs.readFileSync(FARM_FILE)
-    );
+    if (current) chunks.push(current);
+
+    if (chunks.length === 0) return;
+
+    await message.reply(chunks[0]);
+
+    for (let i = 1; i < chunks.length; i++) {
+        await message.channel.send(chunks[i]);
+    }
 }
 
+client.once("ready", async () => {
+    console.log(`Bot Online : ${client.user.tag}`);
 
-function saveFarms(data){
-    fs.writeFileSync(
-        FARM_FILE,
-        JSON.stringify(data,null,2)
-    );
-}
+    try {
+        const { data, error } = await supabase
+            .from("farms")
+            .select("id")
+            .order("id", { ascending: false })
+            .limit(1);
 
+        if (error) throw error;
 
-client.once("ready",()=>{
-    console.log(
-        `Bot Online : ${client.user.tag}`
-    );
+        const latest = data?.[0]?.id ?? 0;
+
+        console.log(`Supabase connected. Latest FARM ID: ${latest}`);
+    } catch (error) {
+        console.error("Supabase connection check failed:", error);
+    }
 });
 
+client.on("messageCreate", async message => {
+    if (message.author.bot) return;
 
-client.on("messageCreate",async message=>{
+    const args = message.content.trim().split(/\s+/);
+    const cmd = (args[0] || "").toLowerCase();
 
-    if(message.author.bot) return;
+    try {
+        // ตรวจฐานข้อมูลโดยไม่สร้างงานใหม่
+        if (cmd === "!dbcheck") {
+            const { count, error: countError } = await supabase
+                .from("farms")
+                .select("*", { count: "exact", head: true });
 
+            if (countError) throw countError;
 
-    const args = message.content.split(" ");
-    const cmd = args[0].toLowerCase();
+            const { data, error } = await supabase
+                .from("farms")
+                .select("id, customer, roblox, status")
+                .order("id", { ascending: false })
+                .limit(1);
 
+            if (error) throw error;
 
-    // สร้างงานฟาร์ม
-    if(cmd === "!addfarm"){
+            const latest = data?.[0];
 
-        let farms = loadFarms();
+            return message.reply(
+`✅ SUPABASE CONNECTED
 
-        let id = farms.length + 1;
+จำนวน FARM ทั้งหมด:
+${count ?? 0}
 
+FARM ล่าสุด:
+${latest ? formatFarmId(latest.id) : "-"}
 
-        farms.push({
+Roblox:
+${latest?.roblox || "-"}
 
-            id:id,
+สถานะ:
+${latest?.status || "-"}`
+            );
+        }
 
-            customer:"",
+        // สร้างงานฟาร์ม
+        if (cmd === "!addfarm") {
+            const { data, error } = await supabase
+                .from("farms")
+                .insert({
+                    customer: "",
+                    roblox: "",
+                    hours: 0,
+                    start_at: null,
+                    end_at: null,
+                    status: "waiting"
+                })
+                .select()
+                .single();
 
-            roblox:"",
+            if (error) throw error;
 
-            hours:0,
-
-            start:null,
-
-            end:null,
-
-            status:"waiting"
-
-});
-        
-
-
-       
-
-        saveFarms(farms);
-
-
-        message.reply(
+            return message.reply(
 `🌾 FARM CREATED
 
-เลขงาน: #${id}
+เลขงาน: #${data.id}
+(${formatFarmId(data.id)})
 
 สถานะ:
 🟡 รอกรอกข้อมูล
 
 ใช้:
-!editfarm ${id}`
-        );
+!editfarm ${data.id}`
+            );
+        }
 
-    }
-    // แก้ข้อมูลฟาร์ม
-    if(cmd === "!editfarm"){
+        // แก้ข้อมูลฟาร์ม
+        if (cmd === "!editfarm") {
+            const id = Number(args[1]);
 
-        let id = Number(args[1]);
+            if (!Number.isInteger(id)) {
+                return message.reply(
+                    "❌ รูปแบบ: !editfarm <เลขงาน> <TikTok> <Roblox> <ชั่วโมง>"
+                );
+            }
 
-        let farms = loadFarms();
+            const farm = await getFarm(id);
 
-        let farm = farms.find(f=>f.id === id);
+            if (!farm) {
+                return message.reply("❌ ไม่พบ FARM ID");
+            }
 
-        if(!farm)
-            return message.reply("❌ ไม่พบ FARM ID");
+            const customer = args[2] || "";
+            const roblox = args[3] || "";
+            const hours = Number(args[4]) || 1;
 
+            const { error } = await supabase
+                .from("farms")
+                .update({
+                    customer,
+                    roblox,
+                    hours
+                })
+                .eq("id", id);
 
-        farm.customer = args[2] || "";
-        farm.roblox = args[3] || "";
-        farm.hours = Number(args[4]) || 1;
+            if (error) throw error;
 
-
-        saveFarms(farms);
-
-
-        message.reply(
+            return message.reply(
 `✅ อัปเดต FARM #${id}
 
 TikTok:
-${farm.customer}
+${customer}
 
 Roblox:
-${farm.roblox}
+${roblox}
 
 เวลา:
-${farm.hours} ชั่วโมง`
-        );
+${hours} ชั่วโมง`
+            );
+        }
 
-    }
+        // เริ่มฟาร์ม
+        if (cmd === "!startfarm") {
+            const id = Number(args[1]);
 
+            if (!Number.isInteger(id)) {
+                return message.reply("❌ รูปแบบ: !startfarm <เลขงาน>");
+            }
 
+            const farm = await getFarm(id);
 
-    // เริ่มฟาร์ม
-    if(cmd === "!startfarm"){
+            if (!farm) {
+                return message.reply("❌ ไม่พบ FARM ID");
+            }
 
-        let id = Number(args[1]);
+            const now = new Date();
+            const end = new Date(
+                now.getTime() + farm.hours * 60 * 60 * 1000
+            );
 
-        let farms = loadFarms();
+            const { error } = await supabase
+                .from("farms")
+                .update({
+                    start_at: now.toISOString(),
+                    end_at: end.toISOString(),
+                    status: "running"
+                })
+                .eq("id", id);
 
-        let farm = farms.find(f=>f.id === id);
+            if (error) throw error;
 
-
-        if(!farm)
-            return message.reply("❌ ไม่พบ FARM ID");
-
-
-        let now = new Date();
-        
-        farm.start = now;
-        
-        let end = new Date(
-            now.getTime() + farm.hours * 60 * 60 * 1000
-        );
-
-
-        farm.start = now;
-        farm.end = end;
-        farm.status = "running";
-
-
-        saveFarms(farms);
-
-
-
-        message.reply(`
-
-🥚 **FARM-${String(id).padStart(3,"0")}** 🥚
+            return message.reply(
+`
+🥚 **${formatFarmId(id)}** 🥚
 
 \`\`\`
 TikTok:
@@ -189,120 +281,125 @@ ${farm.roblox}
 ${farm.hours} ชั่วโมง
 
 เริ่มงาน:
-${now.toLocaleString("th-TH", {
- timeZone:"Asia/Bangkok"
-})}
+${thaiDate(now)}
 
 กำหนดเสร็จ:
-${end.toLocaleString("th-TH", {
- timeZone:"Asia/Bangkok"
-})}
+${thaiDate(end)}
 
 ⏳ เวลาจะนับตั้งแต่ร้านเริ่มฟาร์มจริงเท่านั้น
 \`\`\`
 `
-);
+            );
+        }
 
-    }
+        // ดูรายการฟาร์ม
+        if (cmd === "!farmlist") {
+            const { data, error } = await supabase
+                .from("farms")
+                .select("id, roblox, hours, status")
+                .order("id", { ascending: true });
 
+            if (error) throw error;
 
+            if (!data || data.length === 0) {
+                return message.reply("ไม่มีรายการฟาร์ม");
+            }
 
-    // ดูรายการฟาร์ม
-    if(cmd === "!farmlist"){
+            let text = "🌾 FARM LIST\n\n";
 
-        let farms = loadFarms();
-
-
-        if(farms.length === 0)
-            return message.reply("ไม่มีรายการฟาร์ม");
-
-
-        let text = "🌾 FARM LIST\n\n";
-
-
-        farms.forEach(f=>{
-
-            text +=
-`#${f.id}
-Roblox: ${f.roblox || "-"}
-เวลา: ${f.hours}ชม.
-สถานะ: ${f.status}
+            for (const farm of data) {
+                text +=
+`#${farm.id}
+Roblox: ${farm.roblox || "-"}
+เวลา: ${farm.hours}ชม.
+สถานะ: ${farm.status}
 
 `;
+            }
 
-        });
+            return sendLongMessage(message, text);
+        }
 
+        // หยุดฟาร์ม
+        if (cmd === "!stopfarm") {
+            const id = Number(args[1]);
 
-        message.reply(text);
+            if (!Number.isInteger(id)) {
+                return message.reply("❌ รูปแบบ: !stopfarm <เลขงาน>");
+            }
 
-    }
+            const farm = await getFarm(id);
 
+            if (!farm) {
+                return message.reply("❌ ไม่พบ FARM ID");
+            }
 
+            const { error } = await supabase
+                .from("farms")
+                .update({ status: "stopped" })
+                .eq("id", id);
 
-    // หยุดฟาร์ม
-    if(cmd === "!stopfarm"){
+            if (error) throw error;
 
-        let id = Number(args[1]);
-
-        let farms = loadFarms();
-
-        let farm = farms.find(f=>f.id === id);
-
-
-        if(!farm)
-            return message.reply("❌ ไม่พบ FARM ID");
-
-
-        farm.status="stopped";
-
-
-        saveFarms(farms);
-
-
-        message.reply(
+            return message.reply(
 `🔴 FARM STOPPED
 
 งาน #${id} หยุดแล้ว`
-        );
+            );
+        }
+    } catch (error) {
+        console.error(`Command error (${cmd}):`, error);
 
+        return message.reply(
+            "❌ ระบบฐานข้อมูลมีปัญหาชั่วคราว กรุณาลองใหม่อีกครั้ง"
+        ).catch(() => {});
     }
-
 });
-// ตรวจสอบเวลาฟาร์มทุก 1 นาที
 
-setInterval(()=>{
+// ตรวจสอบงานหมดเวลาทุก 1 นาที
+setInterval(async () => {
+    try {
+        const now = new Date().toISOString();
 
-    let farms = loadFarms();
+        const { data: dueFarms, error } = await supabase
+            .from("farms")
+            .select("*")
+            .eq("status", "running")
+            .lte("end_at", now);
 
-    let changed = false;
+        if (error) throw error;
 
+        if (!dueFarms || dueFarms.length === 0) {
+            return;
+        }
 
-    farms.forEach(farm=>{
+        for (const farm of dueFarms) {
+            // อัปเดตแบบมีเงื่อนไข เพื่อกันแจ้งซ้ำ
+            const { data: completedRows, error: updateError } = await supabase
+                .from("farms")
+                .update({ status: "completed" })
+                .eq("id", farm.id)
+                .eq("status", "running")
+                .select();
 
+            if (updateError) {
+                console.error(
+                    `Cannot complete FARM #${farm.id}:`,
+                    updateError
+                );
+                continue;
+            }
 
-        if(
-            farm.status === "running" &&
-            farm.end
-        ){
+            if (!completedRows || completedRows.length === 0) {
+                continue;
+            }
 
-            let now = new Date();
+            const channel = client.channels.cache.get(FARM_CHANNEL_ID);
 
-            let end = new Date(farm.end);
-
-
-
-            if(now >= end){
-
-                farm.status = "completed";
-
-                changed = true; 
-                let channel = client.channels.cache.get("1545465192719327292");
-
-if(channel){
-
-    channel.send(`
-
-🥚 **FARM-${String(farm.id).padStart(3,"0")}** 🥚
+            if (channel) {
+                await channel.send(
+`
+🥚 **${formatFarmId(farm.id)}** 🥚
 
 \`\`\`
 TikTok:
@@ -318,15 +415,10 @@ ${farm.roblox}
 ${farm.hours} ชั่วโมง
 
 เริ่มงาน:
-${new Date(farm.start).toLocaleString("th-TH", {
-timeZone:"Asia/Bangkok"
-})}
+${thaiDate(farm.start_at)}
 
 เสร็จงาน:
-${new Date(farm.end).toLocaleString("th-TH", {
-timeZone:"Asia/Bangkok"
-})}
-
+${thaiDate(farm.end_at)}
 
 ระบบหยุด:
 0 นาที
@@ -334,94 +426,19 @@ timeZone:"Asia/Bangkok"
 ชดเชย:
 0 นาที
 
-
 เวลาฟาร์มจริงครบ ${farm.hours} ชั่วโมง ✅
-
 
 ขอบคุณที่ใช้บริการ Axbim Shop
 \`\`\`
-
-`);
-
-}
-
-
-                console.log(
-                    `FARM #${farm.id} COMPLETE`
+`
                 );
-
             }
 
+            console.log(`FARM #${farm.id} COMPLETE`);
         }
-
-
-    });
-
-
-
-    if(changed){
-
-        saveFarms(farms);
-
+    } catch (error) {
+        console.error("Farm timer check failed:", error);
     }
-
-
-},60000);
-
-// ตรวจสอบฟาร์มทุก 1 นาที
-setInterval(() => {
-
-    let farms = loadFarms();
-    let changed = false;
-
-    let now = new Date();
-
-    farms.forEach(farm => {
-
-        if(farm.status === "running" && farm.end){
-
-            let end = new Date(farm.end);
-
-            if(now >= end){
-
-                farm.status = "completed";
-                changed = true;
-
-
-                let channel = client.channels.cache.get("1545465192719327292");
-
-                if(channel){
-
-                    channel.send(`
-✅ **FARM COMPLETE**
-
-เลขงาน:
-#${farm.id}
-
-Roblox:
-${farm.roblox}
-
-เวลาฟาร์ม:
-${farm.hours} ชั่วโมง
-
-สถานะ:
-เสร็จสิ้น ✅
-                    `);
-
-                }
-
-            }
-
-        }
-
-    });
-
-
-    if(changed){
-        saveFarms(farms);
-    }
-
-
 }, 60000);
 
-client.login(process.env.TOKEN);
+client.login(TOKEN);
